@@ -138,96 +138,107 @@
 
         // 动态生成表单
         function renderForm(schema, parentPath = "", parentIndexes = {}) {
-            let html = "";
+    let html = "";
 
-            const processProperty = (key, value, path) => {
-                const decodedKey = safeDecode(key);
-                const currentPath = `${path}${key}.`;
-                const displayType = safeDecode(value.type);
-                const placeholderText = value.description
-                    ? safeDecode(value.description)
-                    : `请输入 ${decodedKey}`;
+    const processProperty = (key, value, path) => {
+        const decodedKey = safeDecode(key);
+        const currentPath = `${path}${key}.`;
+        const displayType = safeDecode(value.type);
+        const placeholderText = value.description
+            ? safeDecode(value.description)
+            : `请输入 ${decodedKey}`;
 
-                if (value.type === "object") {
-                    return `
-                        <fieldset>
-                            <legend>${decodedKey}</legend>
-                            ${renderForm(value, currentPath, parentIndexes)}
-                        </fieldset>
-                    `;
-                } else if (value.type === "array") {
-                    const containerId = `${currentPath}_${generateUniqueId()}`;
-                    return `
-                        <fieldset>
-                            <legend>${decodedKey}</legend>
-                            <div id="${containerId}"></div>
-                            <button type="button" class="add-array-item"
-                                data-container-id="${containerId}"
-                                data-item-schema='${JSON.stringify(value.items)}'
-                                data-parent-path="${currentPath}">
-                                添加项
-                            </button>
-                        </fieldset>
-                    `;
-                } else {
-                    return `
-                        <div class="form-field">
-                            <label>
-                                <span class="field-label">${decodedKey}</span>
-                                <span class="type-hint">${displayType}</span>
-                                <input type="text"
-                                       name="${currentPath}"
-                                       data-original-key="${key}"
-                                       placeholder="${placeholderText}">
-                            </label>
-                        </div>
-                    `;
-                }
-            };
-
-            if (schema.type === "object") {
-                Object.entries(schema.properties).forEach(([key, value]) => {
-                    html += processProperty(key, value, parentPath);
-                });
-            } else if (schema.type === "array") {
-                const index = parentIndexes[schema.$id] || 0;
-                const itemPath = `${parentPath}[${index}].`;
-                html += `
-                    <div class="nested-array">
-                        <div>${renderForm(schema.items, itemPath, parentIndexes)}</div>
-                        <button type="button" class="add-array-item"
-                            data-container-id="${parentPath.replace(/\.$/, '')}_container"
-                            data-item-schema='${JSON.stringify(schema.items)}'
-                            data-parent-path="${parentPath}">
-                            添加项
-                        </button>
-                    </div>
-                `;
-            }
-
-            return html;
+        if (value.type === "object") {
+            return `
+                <fieldset>
+                    <legend>${decodedKey}</legend>
+                    ${renderForm(value, currentPath, parentIndexes)}
+                </fieldset>
+            `;
+        } else if (value.type === "array") {
+            const containerId = `${currentPath}_${generateUniqueId()}`;
+            return `
+                <fieldset>
+                    <legend>${decodedKey}</legend>
+                    <div id="${containerId}"></div>
+                    <button type="button" class="add-array-item"
+                        data-container-id="${containerId}"
+                        data-item-schema='${JSON.stringify(value.items)}'
+                        data-parent-path="${currentPath}">
+                        添加项
+                    </button>
+                </fieldset>
+            `;
+        } else {
+            return `
+                <div class="form-field">
+                    <label>
+                        <span class="field-label">${decodedKey}</span>
+                        <span class="type-hint">${displayType}</span>
+                        <input type="text"
+                               name="${currentPath}"
+                               data-original-key="${key}"
+                               placeholder="${placeholderText}">
+                    </label>
+                </div>
+            `;
         }
+    };
+
+    if (schema.type === "object") {
+        Object.entries(schema.properties).forEach(([key, value]) => {
+            html += processProperty(key, value, parentPath);
+        });
+    } else if (schema.type === "array") {
+        // 使用唯一索引而不是父级索引
+        const index = parentIndexes[schema.$id] ??
+            (Math.floor(Math.random() * 1000) + 1000); // 生成唯一起始索引
+        const itemPath = `${parentPath}[${index}].`;
+        html += `
+            <div class="nested-array">
+                <div>${renderForm(schema.items, itemPath, parentIndexes)}</div>
+                <button type="button" class="add-array-item"
+                    data-container-id="${parentPath.replace(/\.$/, '')}_container"
+                    data-item-schema='${JSON.stringify(schema.items)}'
+                    data-parent-path="${parentPath}">
+                    添加项
+                </button>
+            </div>
+        `;
+    }
+
+    return html;
+}
 
         // 添加数组项
         function addArrayItem(containerId, itemSchema, parentPath) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
+    const container = document.getElementById(containerId);
+    if (!container) return;
 
-            const index = container.children.length;
-            const uniqueId = generateUniqueId();
-            const newParentPath = `${parentPath}[${index}].`;
+    // 计算最大现有索引
+    const existingIndexes = Array.from(container.children).map(item =>
+        parseInt(item.dataset.arrayIndex) || 0
+    );
+    const newIndex = existingIndexes.length > 0
+        ? Math.max(...existingIndexes) + 1
+        : 0;
 
-            const itemHtml = `
-                <div class="array-item" data-array-index="${index}" data-unique-id="${uniqueId}">
-                    ${renderForm(itemSchema, newParentPath, { [itemSchema.$id || uniqueId]: index })}
-                    <button type="button" class="remove-array-item">删除</button>
-                </div>
-            `;
-            container.insertAdjacentHTML("beforeend", itemHtml);
-            container.insertAdjacentHTML("beforeend", itemHtml);
-            // 调整新增输入框
-            container.lastElementChild.querySelectorAll('input').forEach(adjustInputWidth);
-        }
+    const uniqueId = generateUniqueId();
+    const newParentPath = `${parentPath}[${newIndex}].`;
+
+    const itemHtml = `
+        <div class="array-item" data-array-index="${newIndex}" data-unique-id="${uniqueId}">
+            ${renderForm(itemSchema, newParentPath, { [itemSchema.$id || uniqueId]: newIndex })}
+            <button type="button" class="remove-array-item">删除</button>
+        </div>
+    `;
+    container.insertAdjacentHTML("beforeend", itemHtml);
+
+    // 调整新增输入框宽度
+    container.lastElementChild.querySelectorAll('input').forEach(input => {
+        adjustInputWidth(input);
+    });
+}
 
         // 事件绑定
         function bindEvents() {
