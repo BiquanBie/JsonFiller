@@ -14,5 +14,15 @@
       "src": "/(.*)",
       "dest": "app.py"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/dev",
+      "destination": "/"
+    },
+    {
+      "source": "/dev/(.*)",
+      "destination": "/$1"
+    }
   ]
 }
