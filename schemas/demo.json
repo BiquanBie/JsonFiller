@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "示例字段": {
+      "type": "字符串"
+    },
+    "嵌套对象": {
+      "type": "object",
+      "properties": {
+        "数值字段": {
+          "type": "整数"
+        }
+      }
+    }
+  }
+}

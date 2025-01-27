@@ -1,0 +1,56 @@
+{
+    "type": "object",
+    "properties": {
+        "RuleTable": {
+            "type": "object",
+            "properties": {
+                "Rule-ID": {"type": "string"},
+                "Rule-Name": {"description": "Fuck You!"},
+                "Law-Text": {"type": "string"},
+                "Rule-Class": {"type": "string"},
+                "InCst-List": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "InCst-ID": {"type": "string"},
+                            "InCst-Name": {"type": "string"},
+                            "InCst-Value": {"type": "string"},
+                            "InCst-Notes": {"type": "string"}
+                        }
+                    }
+                },
+                "Rule-Content": {"type": "string"},
+                "Rule-Proposition-Status-Pairs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "Proposition-key": {"type": "string"},
+                            "C-ID": {"type": "string"}
+                        }
+                    }
+                },
+                "Rule-Rely-List": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "Layer": {"type": "integer"},
+                            "C-ID": {"type": "string"}
+                        }
+                    }
+                },
+                "Output-List": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "C-ID": {"type": "string"}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,46 @@
+{
+    "type": "object",
+    "properties": {
+        "RuleTable": {
+            "type": "object",
+            "properties": {
+                "Rule-ID": {"description": "引用Rule时的ID"},
+                "Rule-Name": {"description": "Rule的名称"},
+                "Law-Text": {"description": "Rule的法条原文"},
+                "Rule-Class": {"description": "Rule的类型编号"},
+                "InCst-Notes": {"description": "Cst的定语Notes"},
+                "Rule-Content": {"description": "Rule运行时使用的内容"},
+                "Rule-Text": {"description": "Rule提取Cst时使用的内容"},
+                "Rule-Text-Proposition-Status-Pairs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "Proposition-key": {"description": "Rule-Text中标出的命题的key"},
+                            "C-ID": {"description": "该命题对应的依赖Status"}
+                        }
+                    }
+                },
+                "Rule-Rely-List": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "Layer": {"description": "依赖的层数，从0开始"},
+                            "C-ID": {"description": "本层依赖的C，对于第0层时为Fact或None"}
+                        }
+                    }
+                },
+                "Output-List": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "C-ID": {"description": "Rule的Output Status的C-ID"}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

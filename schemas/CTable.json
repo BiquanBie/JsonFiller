@@ -1,0 +1,24 @@
+{
+    "type": "object",
+    "properties": {
+        "CTable": {
+            "type": "object",
+            "properties": {
+                "C-ID": {"type": "string", "description": ""},
+                "C-Name": {"type": "string"},
+                "Prop-List": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "Prop-ID": {"type": "string"},
+                            "Prop-Name": {"type": "string"},
+                            "Prop-Value": {"type": "string"},
+                            "Prop-Notes": {"type": "string"}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

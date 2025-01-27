@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="encoding" content="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON 填写器</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", SimSun, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .array-item {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background: #f9f9f9;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        fieldset {
+            margin: 15px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input {
+            margin: 5px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+
+        }
+        #schema-selector {
+            margin: 20px 0;
+            padding: 10px;
+            width: 320px;
+            font-size: 16px;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .type-hint {
+            color: #666;
+            font-size: 0.9em;
+            margin-left: 8px;
+        }
+        input::placeholder {
+            color: #999;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>JSON 填写器</h1>
+
+    <select id="schema-selector">
+        <option value="">-- 正在加载 Schema... --</option>
+    </select>
+
+    <div id="form-container">
+        <form id="json-form" accept-charset="UTF-8"></form>
+    </div>
+
+    <div class="action-buttons">
+        <button id="generate-btn">生成 JSON</button>
+        <button id="download-btn">下载 JSON</button>
+    </div>
+
+    <pre id="result"></pre>
+
+    <script>
+        let clickHandler = null;  // 放在脚本最顶部的变量声明区
+        let currentSchema = null;
+        let globalIndexCounter = 0;
+        const textDecoder = new TextDecoder('utf-8');
+
+        // 编码安全处理函数
+        const safeDecode = (str) => {
+            try {
+                return decodeURIComponent(escape(textDecoder.decode(new TextEncoder().encode(str))));
+            } catch {
+                return str;
+            }
+        };
+
+        // 加载Schema列表
+        async function loadSchemas() {
+            try {
+                const response = await fetch("/get_schemas");
+                const text = await response.text();
+                const data = JSON.parse(text);
+
+                const selector = document.getElementById("schema-selector");
+                selector.innerHTML = '<option value="">-- 选择 Schema --</option>';
+
+                data.schemas.forEach(schema => {
+                    const option = document.createElement("option");
+                    option.value = schema;
+                    option.textContent = safeDecode(schema.replace('.json', ''));
+                    selector.appendChild(option);
+                });
+            } catch (error) {
+                console.error("加载 Schema 列表失败:", error);
+            }
+        }
+
+        // 动态生成表单
+        function renderForm(schema, parentPath = "", parentIndexes = {}) {
+            let html = "";
+
+            const processProperty = (key, value, path) => {
+                const decodedKey = safeDecode(key);
+                const currentPath = `${path}${key}.`;
+                const displayType = safeDecode(value.type);
+                const placeholderText = value.description
+                    ? safeDecode(value.description)
+                    : `请输入 ${decodedKey}`;
+
+                if (value.type === "object") {
+                    return `
+                        <fieldset>
+                            <legend>${decodedKey}</legend>
+                            ${renderForm(value, currentPath, parentIndexes)}
+                        </fieldset>
+                    `;
+                } else if (value.type === "array") {
+                    const containerId = `${currentPath}_${generateUniqueId()}`;
+                    return `
+                        <fieldset>
+                            <legend>${decodedKey}</legend>
+                            <div id="${containerId}"></div>
+                            <button type="button" class="add-array-item"
+                                data-container-id="${containerId}"
+                                data-item-schema='${JSON.stringify(value.items)}'
+                                data-parent-path="${currentPath}">
+                                添加项
+                            </button>
+                        </fieldset>
+                    `;
+                } else {
+                    return `
+                        <div class="form-field">
+                            <label>
+                                <span class="field-label">${decodedKey}</span>
+                                <span class="type-hint">${displayType}</span>
+                                <input type="text"
+                                       name="${currentPath}"
+                                       data-original-key="${key}"
+                                       placeholder="${placeholderText}">
+                            </label>
+                        </div>
+                    `;
+                }
+            };
+
+            if (schema.type === "object") {
+                Object.entries(schema.properties).forEach(([key, value]) => {
+                    html += processProperty(key, value, parentPath);
+                });
+            } else if (schema.type === "array") {
+                const index = parentIndexes[schema.$id] || 0;
+                const itemPath = `${parentPath}[${index}].`;
+                html += `
+                    <div class="nested-array">
+                        <div>${renderForm(schema.items, itemPath, parentIndexes)}</div>
+                        <button type="button" class="add-array-item"
+                            data-container-id="${parentPath.replace(/\.$/, '')}_container"
+                            data-item-schema='${JSON.stringify(schema.items)}'
+                            data-parent-path="${parentPath}">
+                            添加项
+                        </button>
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        // 添加数组项
+        function addArrayItem(containerId, itemSchema, parentPath) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const index = container.children.length;
+            const uniqueId = generateUniqueId();
+            const newParentPath = `${parentPath}[${index}].`;
+
+            const itemHtml = `
+                <div class="array-item" data-array-index="${index}" data-unique-id="${uniqueId}">
+                    ${renderForm(itemSchema, newParentPath, { [itemSchema.$id || uniqueId]: index })}
+                    <button type="button" class="remove-array-item">删除</button>
+                </div>
+            `;
+            container.insertAdjacentHTML("beforeend", itemHtml);
+        }
+
+        // 事件绑定
+        function bindEvents() {
+            // 移除旧的监听器
+            if (clickHandler) {
+                document.removeEventListener("click", clickHandler);
+            }
+
+            // 定义新的处理器
+            clickHandler = (event) => {
+                const target = event.target;
+
+                if (target.classList.contains("add-array-item")) {
+                    const { containerId, itemSchema, parentPath } = target.dataset;
+                    addArrayItem(containerId, JSON.parse(itemSchema), parentPath);
+                }
+
+                if (target.classList.contains("remove-array-item")) {
+                    const item = target.closest(".array-item");
+                    item.remove();
+                    reindexArrayItems(item.parentElement);
+                }
+            };
+
+    // 绑定新的监听器
+    document.addEventListener("click", clickHandler);
+}
+
+        // 解析表单数据
+        function parseFormData(formData) {
+            const data = {};
+
+            for (const [fullPath, value] of formData.entries()) {
+                const path = fullPath.split('.').flatMap(part => {
+                    const arrayMatch = part.match(/(\w+)\[(\d+)\]/);
+                    if (arrayMatch) {
+                        return [arrayMatch[1], arrayMatch[2]];
+                    }
+                    return part;
+                }).filter(p => p !== "");
+
+                let current = data;
+                for (let i = 0; i < path.length; i++) {
+                    const part = path[i];
+                    const nextPart = path[i + 1];
+
+                    if (typeof nextPart === "string" && !isNaN(nextPart)) {
+                        if (!current[part]) {
+                            current[part] = [];
+                        }
+                        const index = parseInt(nextPart);
+                        if (!current[part][index]) {
+                            current[part][index] = {};
+                        }
+                        current = current[part][index];
+                        i++; // 跳过已经处理的索引
+                    } else {
+                        if (i === path.length - 1) {
+                            current[part] = value;
+                        } else {
+                            if (!current[part]) {
+                                current[part] = {};
+                            }
+                            current = current[part];
+                        }
+                    }
+                }
+            }
+            return data;
+        }
+
+        // 工具函数
+        function generateUniqueId() {
+            return `id_${globalIndexCounter++}_${Date.now()}`;
+        }
+
+        function reindexArrayItems(container) {
+            Array.from(container.children).forEach((child, index) => {
+                child.querySelectorAll('input').forEach(input => {
+                    input.name = input.name.replace(/\[\d+\]/g, `[${index}]`);
+                });
+            });
+        }
+
+        // 初始化
+        window.onload = async () => {
+            await loadSchemas();
+
+            document.getElementById("schema-selector").addEventListener("change", async () => {
+                const schemaName = document.getElementById("schema-selector").value;
+                if (!schemaName) return;
+
+                try {
+                    const response = await fetch(`/get_schema/${schemaName}`);
+                    const text = await response.text();
+                    currentSchema = JSON.parse(text);
+
+                    document.getElementById("json-form").innerHTML =
+                        renderForm(currentSchema);
+                    bindEvents();
+                } catch (error) {
+                    console.error("加载 Schema 失败:", error);
+                }
+            });
+
+            document.getElementById("generate-btn").addEventListener("click", () => {
+                const formData = new FormData(document.getElementById("json-form"));
+                const data = parseFormData(formData);
+                const jsonStr = JSON.stringify(data, (key, value) =>
+                    typeof value === "string" ? safeDecode(value) : value, 2
+                );
+                document.getElementById("result").textContent = jsonStr;
+            });
+
+            document.getElementById("download-btn").addEventListener("click", () => {
+            const dataText = document.getElementById("result").textContent;
+            let fileName = "data.json";
+
+            try {
+                const data = JSON.parse(dataText);
+                let outerKey = null;
+                let targetValue = "unknown";
+
+                // 查找第一个对象类型的顶级属性（如 RuleTable/CTable）
+                for (const key of Object.keys(data)) {
+                    const value = data[key];
+                    if (value && typeof value === "object" && !Array.isArray(value)) {
+                        outerKey = key;
+                        // 动态生成目标字段名（如 RuleTable → Rule-ID，CTable → C-ID）
+                        const idKey = outerKey.replace("Table", "-ID");
+
+                        // 优先查找特定ID字段
+                        if (value[idKey] !== undefined) {
+                            targetValue = String(value[idKey]);
+                        }
+                        // 如果不存在ID字段，则找第一个基础类型字段
+                        else {
+                            for (const innerKey of Object.keys(value)) {
+                                const val = value[innerKey];
+                                if (typeof val !== "object" && !Array.isArray(val)) {
+                                    targetValue = String(val);
+                                    break;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+
+                if (outerKey) {
+                    fileName = `${outerKey}_${targetValue}.json`.replace(/\s+/g, "_"); // 处理空格
+                }
+            } catch (e) {
+                console.error("解析JSON失败:", e);
+            }
+
+            const blob = new Blob([dataText], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+        };
+    </script>
+</body>
+</html>
