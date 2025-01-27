@@ -11,18 +11,12 @@
       "dest": "/static/$1"
     },
     {
-      "src": "/(.*)",
-      "dest": "app.py"
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/dev",
-      "destination": "/"
+      "src": "/dev/(.*)",
+      "dest": "/$1"
     },
     {
-      "source": "/dev/(.*)",
-      "destination": "/$1"
+      "src": "/(.*)",
+      "dest": "app.py"
     }
   ]
 }
