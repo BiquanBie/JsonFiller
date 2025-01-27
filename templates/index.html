@@ -33,13 +33,15 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        input {
+       input {
             margin: 5px;
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            width: 300px;
-
+            box-sizing: border-box;
+            min-width: 300px;
+            max-width: 600px;
+            width: auto;
         }
         #schema-selector {
             margin: 20px 0;
@@ -97,6 +99,21 @@
                 return str;
             }
         };
+
+        // 新增宽度调整函数
+        function adjustInputWidth(input) {
+            input.style.width = 'auto';
+            const scrollWidth = input.scrollWidth;
+            const newWidth = Math.min(Math.max(scrollWidth, 300), 600);
+            input.style.width = `${newWidth}px`;
+        }
+
+        // 在初始化代码中添加事件监听
+        document.addEventListener('input', function(e) {
+            if (e.target.matches('input[type="text"]')) {
+                adjustInputWidth(e.target);
+            }
+        });
 
         // 加载Schema列表
         async function loadSchemas() {
@@ -207,6 +224,9 @@
                 </div>
             `;
             container.insertAdjacentHTML("beforeend", itemHtml);
+            container.insertAdjacentHTML("beforeend", itemHtml);
+            // 调整新增输入框
+            container.lastElementChild.querySelectorAll('input').forEach(adjustInputWidth);
         }
 
         // 事件绑定
@@ -311,6 +331,10 @@
                 } catch (error) {
                     console.error("加载 Schema 失败:", error);
                 }
+                document.getElementById("json-form").innerHTML = renderForm(currentSchema);
+                bindEvents();
+                // 初始化所有输入框宽度
+                document.querySelectorAll('#json-form input').forEach(adjustInputWidth);
             });
 
             document.getElementById("generate-btn").addEventListener("click", () => {
