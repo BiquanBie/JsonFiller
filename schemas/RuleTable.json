@@ -11,6 +11,7 @@
                 "InCst-Notes": {"description": "Cst的定语Notes"},
                 "Rule-Content": {"description": "Rule运行时使用的内容"},
                 "Rule-Text": {"description": "Rule提取Cst时使用的内容"},
+                "Rule-RelyDescription": {"description": "如果需要知道..我们就需要知道..."},
                 "Rule-Text-Proposition-Status-Pairs": {
                     "type": "array",
                     "items": {
